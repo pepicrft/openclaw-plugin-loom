@@ -19,6 +19,7 @@ This skill guides agents on how to use the Loom plugin to build and expand a lea
 - A “check yourself” prompt (question or task)
 
 ## When to Create Nodes
+- When a user says “I want to learn X”, **create a path** for X and seed 1-3 starter nodes.
 - When a user mentions a new concept, term, or confusion point, **create a node**.
 - When a context capture reveals missing scaffolding, **add prerequisites**.
 - When a node reaches mastery, **add or unlock a next node** that builds on it.
