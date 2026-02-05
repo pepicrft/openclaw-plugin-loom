@@ -3,6 +3,10 @@
   "version": "0.2.0",
   "description": "OpenClaw plugin for learning graphs with spaced repetition and QMD search",
   "main": "dist/index.js",
+  "files": [
+    "dist",
+    "openclaw.plugin.json"
+  ],
   "type": "module",
   "scripts": {
     "build": "tsc",
