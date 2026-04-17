@@ -1,53 +1,90 @@
-# Loom Learning Graph Skill
+---
+name: loom-learning-graph
+description: "Create, link, and review learning graph nodes using the Loom plugin. Manages paths, nodes, context captures, spaced repetition scheduling, and prerequisite-based unlocks. Use when the user wants to learn a new topic, track knowledge, build a concept map, review with spaced repetition, capture a real-world learning moment, or query their learning library."
+---
 
-This skill guides agents on how to use the Loom plugin to build and expand a learning graph over time.
+# Loom Learning Graph
 
-## Purpose
-- Help users navigate learning paths (e.g., Nix, German) through graph nodes.
-- Expand the graph organically as new knowledge appears.
-- Keep knowledge warm with spaced repetition reviews.
+Build and expand a local-first learning graph of paths, nodes, and context captures with spaced repetition reviews.
 
 ## Core Model
-- **Path**: a learning track (e.g., `nix`, `german`).
-- **Node**: atomic learning unit with prerequisites, unlocks, and review scheduling.
-- **Context**: real-world capture that should seed new nodes or enrich existing ones.
 
-## What a Node Contains
-- A short explanation in your own words
-- A concrete example or mini exercise
-- Links to prerequisite or follow-up nodes by `id`
-- A “check yourself” prompt (question or task)
+- **Path**: a learning track (e.g., `nix`, `german`). Created via `learn_add_node` with a `path` parameter.
+- **Node**: atomic learning unit with prerequisites, unlocks, and SRS scheduling. Status flows: `locked` → `available` → `in-progress` → `mastered`.
+- **Context**: real-world capture that seeds new nodes or enriches existing ones.
 
-## When to Create Nodes
-- When a user says “I want to learn X”, **create a path** for X and seed 1-3 starter nodes.
-- When a user mentions a new concept, term, or confusion point, **create a node**.
-- When a context capture reveals missing scaffolding, **add prerequisites**.
-- When a node reaches mastery, **add or unlock a next node** that builds on it.
-- When a session reveals gaps, **insert a bridging node**.
+## When to Act
 
-## How to Expand the Graph
-- Prefer **small, focused nodes** over large, vague ones.
-- Use `prerequisites` to gate advanced topics.
-- Add `unlocks` to highlight natural next steps.
-- Always link nodes by `id` in body text (wikilinks are fine).
+| User says | Action |
+|-----------|--------|
+| "I want to learn X" | Create a path and seed 1–3 starter nodes |
+| Mentions a new concept or confusion | Create a node with `learn_add_node` |
+| Describes a real-world situation | Capture with `learn_capture`, then create or link nodes |
+| Asks "what should I study next?" | Call `learn_next` with `start: true` |
+| Finishes studying a node | Call `learn_review` with a rating |
+| Searches for something in their library | Call `learn_query` |
 
-## Workflow (Agent)
-1. **Capture context** when the user mentions a real situation.
-2. **Create or update nodes** from the context.
-3. **Unlock nodes** when prerequisites are mastered.
-4. **Recommend next** using `learn next` and prompt review with `learn review`.
+## Workflow
 
-## Tooling
-- `learn_add_node` to add nodes.
-- `learn_capture` to capture contexts.
-- `learn_next` to pick the next node.
-- `learn_review` to schedule repetition.
-- `learn_query` to search the library.
+1. **Capture context** when the user mentions a real situation → `learn_capture`.
+2. **Create or update nodes** from the context → `learn_add_node`.
+3. **Check unlocks** — nodes whose prerequisites are mastered auto-unlock via `learn_next`.
+4. **Recommend next** → `learn_next` with `start: true` to mark it in-progress.
+5. **Schedule review** after study → `learn_review` with rating (`again`, `hard`, `good`, `easy`).
+
+## Tool Reference
+
+### learn_add_node
+
+Create a learning node. Required: `title`, `body`. Key optional fields: `path`, `summary`, `type` (concept|practice|project|checkpoint), `prerequisites`, `unlocks`, `tags`.
+
+```json
+{
+  "title": "Nix Flakes",
+  "body": "Flakes provide a standard way to write Nix expressions...\n\n## Check yourself\nWhat does `nix flake init` create?",
+  "path": "nix",
+  "summary": "Understand flake.nix structure and inputs/outputs",
+  "type": "concept",
+  "prerequisites": ["nix/store-basics"],
+  "unlocks": ["nix/flake-outputs"],
+  "tags": ["nix", "packaging"]
+}
+```
+
+### learn_capture
+
+Capture a real-world learning moment. Required: `title`, `body`. Optional: `path`, `node`, `tags`.
+
+```json
+{
+  "title": "German bakery order",
+  "body": "Tried ordering Schrippen and got confused about plural forms.",
+  "path": "german",
+  "tags": ["speaking", "german"]
+}
+```
+
+### learn_next
+
+Pick the next node to study. Prioritizes: due reviews → available nodes (lowest familiarity) → in-progress nodes. Pass `start: true` to mark the node as in-progress.
+
+### learn_review
+
+Review a node and schedule the next repetition. Required: `id`, `rating`. Ratings: `again` (−1 familiarity), `hard` (no change), `good` (+1), `easy` (+2). Node reaches `mastered` status at familiarity ≥ 4.
+
+### learn_query
+
+Search the learning library via QMD. Required: `query`. Optional: `mode` (search|vsearch|query), `limit`, `minScore`.
+
+## Node Authoring Guidelines
+
+- Keep nodes narrow, testable, and self-contained.
+- Include: a short explanation, a concrete example or exercise, prerequisite/follow-up links by `id`, and a "check yourself" prompt.
+- Use `prerequisites` to gate advanced topics; use `unlocks` to signal next steps.
+- Link nodes by `id` using wikilinks (`[[nix/derivations]]`) or standard Markdown links.
 
 ## Defaults
-- Nodes are Markdown (`.md`).
-- Spaced repetition intervals default to `[1, 3, 7, 14, 30, 60, 120, 240]` days.
 
-## Example Triggers
-- “I read about Nix flakes today” → add node `nix/flakes` with prereqs.
-- “I got confused ordering coffee in German” → capture context and add node `german/ordering-coffee`.
+- SRS intervals: `[1, 3, 7, 14, 30, 60, 120, 240]` days.
+- Mastery threshold: familiarity ≥ 4.
+- Nodes are Markdown (`.md`).
